@@ -13,12 +13,13 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# 👑 Peamine admin (sina)
+# 👑 Sina (owner)
 OWNER_ID = 7936569231
 
-# 👤 Adminide list
+# 👤 Adminide hulk
 admins = {OWNER_ID}
 
+# 📦 Muudetav stock tekst
 stock_text = "📦 Stock on hetkel tühi."
 
 # /start
@@ -36,9 +37,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open("doggie.png", "rb") as photo:
         await update.message.reply_photo(
             photo=photo,
-            caption="🐶 *Tere tulemast DoggieMarketisse!*",
-            reply_markup=reply_markup,
-            parse_mode="Markdown"
+            caption="🐶 Tere tulemast DoggieMarketisse!",
+            reply_markup=reply_markup
         )
 
 # 🔐 Admin-only /stock
@@ -79,7 +79,7 @@ async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     admins.add(new_admin)
-    await update.message.reply_text(f"✅ Admin lisatud: `{new_admin}`", parse_mode="Markdown")
+    await update.message.reply_text(f"✅ Admin lisatud: {new_admin}")
 
 # Nupud
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,20 +88,17 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "stock":
         await query.edit_message_caption(
-            f"📦 *Stock*\n\n{stock_text}",
-            parse_mode="Markdown"
+            f"📦 Stock\n\n{stock_text}"
         )
 
     elif query.data == "operators":
         await query.edit_message_caption(
-            "👤 *Operators*\n\nComing soon",
-            parse_mode="Markdown"
+            "👤 Operators\n\nComing soon"
         )
 
     elif query.data == "links":
         await query.edit_message_caption(
-            "🔗 *Links*\n\nhttps://t.me/yourchannel",
-            parse_mode="Markdown"
+            "🔗 Links\n\nhttps://t.me/doggiemarket_bot"
         )
 
 def main():
