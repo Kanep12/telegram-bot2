@@ -1,6 +1,5 @@
 import os
 import json
-import html
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -14,56 +13,67 @@ from telegram.ext import (
 )
 
 TOKEN = os.environ.get("BOT_TOKEN")
-
-# 👑 Owner
 OWNER_ID = 7936569231
-DATA_FILE = "data.json"
+
+STOCK_FILE = "stock.txt"
+OPERATORS_FILE = "operators.json"
+LINKS_FILE = "links.txt"
 
 # =====================
-# 🧠 ANDMED
+# LOAD / SAVE
 # =====================
-stock_text = "📦 Stock\n\nInfo puudub."
-operators = {}
-links = []
+
+def load_stock():
+    if os.path.exists(STOCK_FILE):
+        with open(STOCK_FILE, "r", encoding="utf-8") as f:
+            return f.read()
+    return "📦 Stock\n\nInfo puudub."
+
+def save_stock(text):
+    with open(STOCK_FILE, "w", encoding="utf-8") as f:
+        f.write(text)
+
+def load_operators():
+    if os.path.exists(OPERATORS_FILE):
+        with open(OPERATORS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_operators(data):
+    with open(OPERATORS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_links():
+    links = []
+    if os.path.exists(LINKS_FILE):
+        with open(LINKS_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                if "|" in line:
+                    name, url = line.strip().split("|", 1)
+                    links.append({"name": name, "url": url})
+    return links
+
+def save_links(links):
+    with open(LINKS_FILE, "w", encoding="utf-8") as f:
+        for l in links:
+            f.write(f"{l['name']}|{l['url']}\n")
 
 # =====================
-# 💾 LOAD / SAVE
+# DATA
 # =====================
-def load_data():
-    global stock_text, operators, links
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            stock_text = data.get("stock_text", stock_text)
-            operators = data.get("operators", {})
-            links = data.get("links", [])
 
-def save_data():
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "stock_text": stock_text,
-                "operators": operators,
-                "links": links
-            },
-            f,
-            ensure_ascii=False,
-            indent=2
-        )
+stock_text = load_stock()
+operators = load_operators()
+links = load_links()
 
 # =====================
-# 🏠 HOME
+# UI
 # =====================
+
 HOME_CAPTION = (
     "🐶 Tere tulemast DoggieMarketisse!\n\n"
     "Kasuta allolevaid nuppe."
 )
-
-# =====================
-# 🎨 UI
-# =====================
-def box(text: str) -> str:
-    return f"<blockquote>{html.escape(text)}</blockquote>"
 
 def main_menu():
     return InlineKeyboardMarkup([
@@ -82,6 +92,7 @@ def back():
 # =====================
 # /start
 # =====================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open("doggie.png", "rb") as photo:
         await update.message.reply_photo(
@@ -91,19 +102,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # =====================
-# 📦 STOCK
+# STOCK
 # =====================
+
 async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global stock_text
     if update.effective_user.id != OWNER_ID:
         return
-    global stock_text
+
     stock_text = update.message.text.split(" ", 1)[1]
-    save_data()
+    save_stock(stock_text)
     await update.message.reply_text("✅ Stock salvestatud")
 
 # =====================
-# 👑 ADD OPERATOR
+# OPERATORS
 # =====================
+
 async def add_operator(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
@@ -115,7 +129,7 @@ async def add_operator(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "online": False,
         "delivery": False
     }
-    save_data()
+    save_operators(operators)
     await update.message.reply_text(f"✅ Operator lisatud: {username}")
 
 def get_operator(user):
@@ -124,19 +138,16 @@ def get_operator(user):
     key = f"@{user.username}"
     if key in operators:
         operators[key]["user_id"] = user.id
-        save_data()
+        save_operators(operators)
         return operators[key]
     return None
 
-# =====================
-# 👤 OPERATOR KÄSUD
-# =====================
 async def set_loc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     op = get_operator(update.effective_user)
     if not op:
         return
     op["loc"] = " ".join(context.args)
-    save_data()
+    save_operators(operators)
     await update.message.reply_text("📍 Location salvestatud")
 
 async def online(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -144,7 +155,7 @@ async def online(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not op:
         return
     op["online"] = True
-    save_data()
+    save_operators(operators)
     await update.message.reply_text("🟢 ONLINE")
 
 async def offline(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -152,7 +163,7 @@ async def offline(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not op:
         return
     op["online"] = False
-    save_data()
+    save_operators(operators)
     await update.message.reply_text("🔴 OFFLINE")
 
 async def delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -160,65 +171,67 @@ async def delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not op:
         return
     op["delivery"] = context.args[0].lower() == "yes"
-    save_data()
+    save_operators(operators)
     await update.message.reply_text("🚚 Delivery salvestatud")
 
 # =====================
-# 🔗 ADD LINK
+# LINKS (nimi võib sisaldada VAHESID)
 # =====================
+
 async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
-    name = context.args[0]
-    url = context.args[1]
+
+    url = context.args[-1]
+    name = " ".join(context.args[:-1])
+
     links.append({"name": name, "url": url})
-    save_data()
+    save_links(links)
     await update.message.reply_text("✅ Link lisatud")
 
 # =====================
-# 🔘 BUTTONS
+# BUTTONS
 # =====================
+
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
     if q.data == "stock":
         await q.edit_message_caption(
-            caption=box(stock_text),
-            parse_mode="HTML",
+            caption=stock_text,
             reply_markup=back()
         )
 
     elif q.data == "operators":
-        rows = []
-        for username, op in operators.items():
-            rows.append(
-                f"{username} | 📍 {op['loc']} | "
-                f"{'🟢 Online' if op['online'] else '🔴 Offline'} | "
-                f"🚚 {'Yes' if op['delivery'] else 'No'}"
-            )
-        await q.edit_message_caption(
-            caption=box("\n".join(rows) if rows else "Info puudub."),
-            parse_mode="HTML",
-            reply_markup=back()
-        )
-
-    # 🔗 LINKS – ILMA KASTITA
-    elif q.data == "links":
-        if not links:
-            text = "🔗 LINKS\n\nInfo puudub."
+        if not operators:
+            text = "👤 OPERATORS\n\nInfo puudub."
         else:
-            rows = ["🔗 <b>LINKS</b>\n"]
-            for l in links:
+            rows = ["👤 OPERATORS\n"]
+            for username, op in operators.items():
                 rows.append(
-                    f"📢 <b>{html.escape(l['name'])}</b>\n"
-                    f"🔗 {html.escape(l['url'])}\n"
+                    f"{username} | 📍 {op['loc']} | "
+                    f"{'🟢 Online' if op['online'] else '🔴 Offline'} | "
+                    f"🚚 {'Yes' if op['delivery'] else 'No'}"
                 )
             text = "\n".join(rows)
 
         await q.edit_message_caption(
             caption=text,
-            parse_mode="HTML",
+            reply_markup=back()
+        )
+
+    elif q.data == "links":
+        if not links:
+            text = "🔗 LINKS\n\nInfo puudub."
+        else:
+            rows = ["🔗 LINKS\n"]
+            for l in links:
+                rows.append(f"📢 {l['name']}\n🔗 {l['url']}\n")
+            text = "\n".join(rows)
+
+        await q.edit_message_caption(
+            caption=text,
             reply_markup=back()
         )
 
@@ -231,8 +244,8 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =====================
 # MAIN
 # =====================
+
 def main():
-    load_data()
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
