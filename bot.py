@@ -20,7 +20,7 @@ OWNER_ID = 7936569231
 DATA_FILE = "data.json"
 
 # =====================
-# 🧠 ANDMED (vaikimisi)
+# 🧠 ANDMED
 # =====================
 stock_text = "📦 Stock\n\nInfo puudub."
 
@@ -209,6 +209,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
+    # 📦 STOCK
     if q.data == "stock":
         await q.edit_message_caption(
             caption=box(stock_text),
@@ -216,6 +217,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back()
         )
 
+    # 👤 OPERATORS
     elif q.data == "operators":
         if not operators:
             text = "👤 Operators | Info puudub."
@@ -236,21 +238,26 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back()
         )
 
+    # 🔗 LINKS (SUUR STIIL)
     elif q.data == "links":
         if not links:
-            text = "🔗 Links\n\nInfo puudub."
+            text = "🔗 LINKS\n\nInfo puudub."
         else:
-            rows = []
+            rows = ["🔗 LINKS\n"]
             for l in links:
-                rows.append(f"{l['name']} → {l['url']}")
+                rows.append(
+                    f"📢 <b>{html.escape(l['name'])}</b>\n"
+                    f"🔗 {html.escape(l['url'])}\n"
+                )
             text = "\n".join(rows)
 
         await q.edit_message_caption(
-            caption=box(text),
+            caption=f"<blockquote>{text}</blockquote>",
             parse_mode="HTML",
             reply_markup=back()
         )
 
+    # 🔙 BACK
     elif q.data == "back":
         await q.edit_message_caption(
             caption=HOME_CAPTION,
