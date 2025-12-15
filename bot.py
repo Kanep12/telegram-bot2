@@ -7,15 +7,21 @@ from telegram import (
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
-    MessageHandler,
     CallbackQueryHandler,
-    ContextTypes,
-    filters
+    ContextTypes
 )
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# /start käsk
+# 👑 Peamine admin (sina)
+OWNER_ID = 7936569231
+
+# 👤 Adminide list
+admins = {OWNER_ID}
+
+stock_text = "📦 Stock on hetkel tühi."
+
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [
@@ -35,26 +41,68 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
 
-# Nuppude handler
+# 🔐 Admin-only /stock
+async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global stock_text
+
+    user_id = update.effective_user.id
+
+    if user_id not in admins:
+        await update.message.reply_text("⛔ Sul pole õigust seda käsku kasutada.")
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "❌ Kasutus:\n/stock siia kirjuta uus stock tekst"
+        )
+        return
+
+    stock_text = " ".join(context.args)
+    await update.message.reply_text("✅ Stock tekst uuendatud!")
+
+# 👑 Owner-only /addadmin
+async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    if user_id != OWNER_ID:
+        await update.message.reply_text("⛔ Ainult owner saab admini lisada.")
+        return
+
+    if not context.args:
+        await update.message.reply_text("❌ Kasutus: /addadmin <user_id>")
+        return
+
+    try:
+        new_admin = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ User ID peab olema number.")
+        return
+
+    admins.add(new_admin)
+    await update.message.reply_text(f"✅ Admin lisatud: `{new_admin}`", parse_mode="Markdown")
+
+# Nupud
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     if query.data == "stock":
-        await query.edit_message_caption("📦 *Stock* – coming soon", parse_mode="Markdown")
+        await query.edit_message_caption(
+            f"📦 *Stock*\n\n{stock_text}",
+            parse_mode="Markdown"
+        )
 
     elif query.data == "operators":
-        await query.edit_message_caption("👤 *Operators* – info varsti", parse_mode="Markdown")
+        await query.edit_message_caption(
+            "👤 *Operators*\n\nComing soon",
+            parse_mode="Markdown"
+        )
 
     elif query.data == "links":
         await query.edit_message_caption(
             "🔗 *Links*\n\nhttps://t.me/yourchannel",
             parse_mode="Markdown"
         )
-
-# Echo (võid hiljem ära kustutada)
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(update.message.text)
 
 def main():
     if not TOKEN:
@@ -63,8 +111,9 @@ def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("stock", set_stock))
+    app.add_handler(CommandHandler("addadmin", add_admin))
     app.add_handler(CallbackQueryHandler(buttons))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     print("Bot töötab...")
     app.run_polling()
