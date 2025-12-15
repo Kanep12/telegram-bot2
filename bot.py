@@ -14,27 +14,28 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# 👑 Owner
+# 👑 Owner (sina)
 OWNER_ID = 7936569231
-
-# 👤 Operators
-# user_id: {username, loc, online, delivery}
-operators = {}
 
 # 📦 Stock
 stock_text = "📦 Stock\n\nInfo puudub."
 
-# 🏠 Home
+# 👤 Operators
+# key = @username
+# value = {user_id, loc, online, delivery}
+operators = {}
+
+# 🏠 Home tekst
 HOME_CAPTION = (
     "🐶 Tere tulemast DoggieMarketisse!\n\n"
     "Kasuta allolevaid nuppe."
 )
 
-# 🔧 HTML blockquote
+# 🔧 HTML lilla kast
 def box(text: str) -> str:
     return f"<blockquote>{html.escape(text)}</blockquote>"
 
-# 🔘 Keyboards
+# 🔘 Nupud
 def main_menu():
     return InlineKeyboardMarkup([
         [
@@ -89,7 +90,6 @@ async def add_operator(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     operators[username] = {
         "user_id": None,
-        "username": username,
         "loc": "Not set",
         "online": False,
         "delivery": False
@@ -98,18 +98,16 @@ async def add_operator(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ Operator lisatud: {username}")
 
 # =====================
-# 👤 OPERATOR INIT
+# 👤 OPERATOR TUVASTUS
 # =====================
 def get_operator(user):
-    for op in operators.values():
-        if op["user_id"] == user.id:
-            return op
+    if not user.username:
+        return None
 
-    if user.username:
-        key = f"@{user.username}"
-        if key in operators:
-            operators[key]["user_id"] = user.id
-            return operators[key]
+    key = f"@{user.username}"
+    if key in operators:
+        operators[key]["user_id"] = user.id
+        return operators[key]
 
     return None
 
@@ -155,6 +153,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
+    # 📦 STOCK
     if q.data == "stock":
         await q.edit_message_caption(
             caption=box(stock_text),
@@ -162,19 +161,20 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back()
         )
 
+    # 👤 OPERATORS (ÜHEL REAL)
     elif q.data == "operators":
         if not operators:
-            text = "👤 Operators\n\nInfo puudub."
+            text = "👤 Operators | Info puudub."
         else:
-            parts = []
-            for op in operators.values():
-                parts.append(
-                    f"{op['username']}\n"
-                    f"📍 {op['loc']}\n"
-                    f"{'🟢 Online' if op['online'] else '🔴 Offline'}\n"
-                    f"🚚 Delivery: {'Yes' if op['delivery'] else 'No'}"
+            rows = []
+            for username, op in operators.items():
+                rows.append(
+                    f"{username} | "
+                    f"📍 {op['loc']} | "
+                    f"{'🟢 Online' if op['online'] else '🔴 Offline'} | "
+                    f"🚚 {'Yes' if op['delivery'] else 'No'}"
                 )
-            text = "\n\n".join(parts)
+            text = "\n".join(rows)
 
         await q.edit_message_caption(
             caption=box(text),
@@ -182,12 +182,14 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back()
         )
 
+    # 🔗 LINKS
     elif q.data == "links":
         await q.edit_message_caption(
             caption="🔗 Links\n\n@doggiemarket_bot",
             reply_markup=back()
         )
 
+    # 🔙 BACK
     elif q.data == "back":
         await q.edit_message_caption(
             caption=HOME_CAPTION,
