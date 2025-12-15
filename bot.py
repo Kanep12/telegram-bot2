@@ -16,12 +16,12 @@ TOKEN = os.environ["BOT_TOKEN"]
 DATABASE_URL = os.environ["DATABASE_URL"]
 OWNER_ID = 7936569231
 
-# =====================
-# DB
-# =====================
-pool: asyncpg.Pool = None
+pool: asyncpg.Pool | None = None
 
-async def init_db():
+# =====================
+# DB INIT (POST_INIT)
+# =====================
+async def init_db(app):
     global pool
     pool = await asyncpg.create_pool(DATABASE_URL)
 
@@ -95,6 +95,7 @@ async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = update.message.text.split(" ", 1)[1]
+
     async with pool.acquire() as conn:
         await conn.execute(
             "UPDATE stock SET text=$1 WHERE id=1",
@@ -129,10 +130,9 @@ async def get_operator(user):
 
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT * FROM operators WHERE username=$1",
+            "SELECT username FROM operators WHERE username=$1",
             username
         )
-
         if row:
             await conn.execute(
                 "UPDATE operators SET user_id=$1 WHERE username=$2",
@@ -147,6 +147,7 @@ async def set_loc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     loc = " ".join(context.args)
+
     async with pool.acquire() as conn:
         await conn.execute(
             "UPDATE operators SET loc=$1 WHERE username=$2",
@@ -186,11 +187,12 @@ async def delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not username:
         return
 
-    val = context.args[0].lower() == "yes"
+    value = context.args[0].lower() == "yes"
+
     async with pool.acquire() as conn:
         await conn.execute(
             "UPDATE operators SET delivery=$1 WHERE username=$2",
-            val, username
+            value, username
         )
 
     await update.message.reply_text("🚚 Delivery salvestatud")
@@ -224,10 +226,14 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if q.data == "stock":
             row = await conn.fetchrow("SELECT text FROM stock WHERE id=1")
-            await q.edit_message_caption(row["text"], reply_markup=back())
+            await q.edit_message_caption(
+                caption=row["text"],
+                reply_markup=back()
+            )
 
         elif q.data == "operators":
             rows = await conn.fetch("SELECT * FROM operators")
+
             if not rows:
                 text = "👤 OPERATORS\n\nInfo puudub."
             else:
@@ -240,10 +246,14 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                 text = "\n".join(out)
 
-            await q.edit_message_caption(text, reply_markup=back())
+            await q.edit_message_caption(
+                caption=text,
+                reply_markup=back()
+            )
 
         elif q.data == "links":
             rows = await conn.fetch("SELECT * FROM links")
+
             if not rows:
                 text = "🔗 LINKS\n\nInfo puudub."
             else:
@@ -252,18 +262,27 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     out.append(f"📢 {r['name']}\n🔗 {r['url']}\n")
                 text = "\n".join(out)
 
-            await q.edit_message_caption(text, reply_markup=back())
+            await q.edit_message_caption(
+                caption=text,
+                reply_markup=back()
+            )
 
         elif q.data == "back":
-            await q.edit_message_caption(HOME_CAPTION, reply_markup=main_menu())
+            await q.edit_message_caption(
+                caption=HOME_CAPTION,
+                reply_markup=main_menu()
+            )
 
 # =====================
-# MAIN
+# MAIN (ÕIGE!)
 # =====================
-async def main():
-    await init_db()
-
-    app = ApplicationBuilder().token(TOKEN).build()
+def main():
+    app = (
+        ApplicationBuilder()
+        .token(TOKEN)
+        .post_init(init_db)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stock", set_stock))
@@ -276,8 +295,7 @@ async def main():
     app.add_handler(CallbackQueryHandler(buttons))
 
     print("Bot töötab (PostgreSQL)")
-    await app.run_polling()
+    app.run_polling()
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
