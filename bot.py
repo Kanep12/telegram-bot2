@@ -18,51 +18,55 @@ TOKEN = os.environ.get("BOT_TOKEN")
 # 👑 Owner
 OWNER_ID = 7936569231
 
-DATA_FILE = "operators.json"
+DATA_FILE = "data.json"
 
-# 📦 Stock
+# =====================
+# 🧠 ANDMED (vaikimisi)
+# =====================
 stock_text = "📦 Stock\n\nInfo puudub."
 
-# 👤 Operators
+operators = {}
 # key = @username
 # value = {user_id, loc, online, delivery}
-operators = {}
 
 # =====================
 # 💾 LOAD / SAVE
 # =====================
-
 def load_data():
-    global operators, stock_text
+    global stock_text, operators
+
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            operators = data.get("operators", {})
             stock_text = data.get("stock_text", stock_text)
+            operators = data.get("operators", {})
 
 def save_data():
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(
             {
-                "operators": operators,
-                "stock_text": stock_text
+                "stock_text": stock_text,
+                "operators": operators
             },
             f,
             ensure_ascii=False,
             indent=2
         )
 
-# 🏠 Home
+# =====================
+# 🏠 HOME
+# =====================
 HOME_CAPTION = (
     "🐶 Tere tulemast DoggieMarketisse!\n\n"
     "Kasuta allolevaid nuppe."
 )
 
-# 🔧 HTML lilla kast
+# =====================
+# 🎨 UI
+# =====================
 def box(text: str) -> str:
     return f"<blockquote>{html.escape(text)}</blockquote>"
 
-# 🔘 Nupud
 def main_menu():
     return InlineKeyboardMarkup([
         [
@@ -103,7 +107,7 @@ async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global stock_text
     stock_text = update.message.text.split(" ", 1)[1]
     save_data()
-    await update.message.reply_text("✅ Stock uuendatud!")
+    await update.message.reply_text("✅ Stock salvestatud!")
 
 # =====================
 # 👑 ADD OPERATOR
@@ -153,7 +157,7 @@ async def set_loc(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     op["loc"] = " ".join(context.args)
     save_data()
-    await update.message.reply_text("📍 Location uuendatud")
+    await update.message.reply_text("📍 Location salvestatud")
 
 async def online(update: Update, context: ContextTypes.DEFAULT_TYPE):
     op = get_operator(update.effective_user)
@@ -180,7 +184,7 @@ async def delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     op["delivery"] = context.args[0].lower() == "yes"
     save_data()
-    await update.message.reply_text("🚚 Delivery uuendatud")
+    await update.message.reply_text("🚚 Delivery salvestatud")
 
 # =====================
 # 🔘 BUTTONS
