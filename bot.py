@@ -13,14 +13,26 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# 👑 Sina (owner)
+# 👑 Owner (sina)
 OWNER_ID = 7936569231
 
-# 👤 Adminide hulk
+# 👤 Adminid
 admins = {OWNER_ID}
 
-# 📦 Muudetav stock tekst
-stock_text = "📦 Stock on hetkel tühi."
+# 📦 Stock tekst (blockquote / lilla kast)
+stock_text = (
+    "> 🧬 Strain\n"
+    "> 👴🏻💨 Grandaddy Purp\n"
+    ">\n"
+    "> 💶 Prices\n"
+    "> • 1x – 55€\n"
+    "> • 2x – 110€\n"
+    "> • 3x – 150€\n"
+    ">\n"
+    "> 💪 Strength\n"
+    "> Live Resin 🍯🫗\n"
+    "> High THC"
+)
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -37,7 +49,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open("doggie.png", "rb") as photo:
         await update.message.reply_photo(
             photo=photo,
-            caption="🐶 Tere tulemast DoggieMarketisse!",
+            caption="🍯🌬️ Carts",
             reply_markup=reply_markup
         )
 
@@ -45,26 +57,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global stock_text
 
-    user_id = update.effective_user.id
-
-    if user_id not in admins:
+    if update.effective_user.id not in admins:
         await update.message.reply_text("⛔ Sul pole õigust seda käsku kasutada.")
         return
 
     if not context.args:
         await update.message.reply_text(
-            "❌ Kasutus:\n/stock siia kirjuta uus stock tekst"
+            "❌ Kasutus:\n/stock <stock tekst>\n\n"
+            "NB! Lilla kasti jaoks alusta iga rida märgiga >"
         )
         return
 
     stock_text = " ".join(context.args)
-    await update.message.reply_text("✅ Stock tekst uuendatud!")
+    await update.message.reply_text("✅ Stock uuendatud!")
 
 # 👑 Owner-only /addadmin
 async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
-    if user_id != OWNER_ID:
+    if update.effective_user.id != OWNER_ID:
         await update.message.reply_text("⛔ Ainult owner saab admini lisada.")
         return
 
@@ -88,17 +97,18 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "stock":
         await query.edit_message_caption(
-            f"📦 Stock\n\n{stock_text}"
+            stock_text,
+            parse_mode="Markdown"
         )
 
     elif query.data == "operators":
         await query.edit_message_caption(
-            "👤 Operators\n\nComing soon"
+            "👤 Operators\n\nAsk from bot"
         )
 
     elif query.data == "links":
         await query.edit_message_caption(
-            "🔗 Links\n\nhttps://t.me/doggiemarket_bot"
+            "🔗 Links\n\n@doggiemarket_bot"
         )
 
 def main():
