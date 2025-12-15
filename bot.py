@@ -23,12 +23,8 @@ DATA_FILE = "data.json"
 # 🧠 ANDMED
 # =====================
 stock_text = "📦 Stock\n\nInfo puudub."
-
 operators = {}
-# @username: {user_id, loc, online, delivery}
-
 links = []
-# [{name, url}]
 
 # =====================
 # 💾 LOAD / SAVE
@@ -99,27 +95,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =====================
 async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("⛔ Ainult owner saab stocki muuta.")
         return
-
-    if len(update.message.text.split(" ", 1)) < 2:
-        await update.message.reply_text("/stock <tekst>")
-        return
-
     global stock_text
     stock_text = update.message.text.split(" ", 1)[1]
     save_data()
-    await update.message.reply_text("✅ Stock salvestatud!")
+    await update.message.reply_text("✅ Stock salvestatud")
 
 # =====================
 # 👑 ADD OPERATOR
 # =====================
 async def add_operator(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
-        return
-
-    if not context.args:
-        await update.message.reply_text("/addoperator @username")
         return
 
     username = context.args[0]
@@ -129,20 +115,17 @@ async def add_operator(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "online": False,
         "delivery": False
     }
-
     save_data()
     await update.message.reply_text(f"✅ Operator lisatud: {username}")
 
 def get_operator(user):
     if not user.username:
         return None
-
     key = f"@{user.username}"
     if key in operators:
         operators[key]["user_id"] = user.id
         save_data()
         return operators[key]
-
     return None
 
 # =====================
@@ -181,26 +164,16 @@ async def delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚚 Delivery salvestatud")
 
 # =====================
-# 🔗 LINKS
+# 🔗 ADD LINK
 # =====================
 async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
-
-    if len(context.args) < 2:
-        await update.message.reply_text("/link <nimi> <url>")
-        return
-
     name = context.args[0]
     url = context.args[1]
-
-    links.append({
-        "name": name,
-        "url": url
-    })
-
+    links.append({"name": name, "url": url})
     save_data()
-    await update.message.reply_text("✅ Link lisatud!")
+    await update.message.reply_text("✅ Link lisatud")
 
 # =====================
 # 🔘 BUTTONS
@@ -209,7 +182,6 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
-    # 📦 STOCK
     if q.data == "stock":
         await q.edit_message_caption(
             caption=box(stock_text),
@@ -217,33 +189,26 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back()
         )
 
-    # 👤 OPERATORS
     elif q.data == "operators":
-        if not operators:
-            text = "👤 Operators | Info puudub."
-        else:
-            rows = []
-            for username, op in operators.items():
-                rows.append(
-                    f"{username} | "
-                    f"📍 {op['loc']} | "
-                    f"{'🟢 Online' if op['online'] else '🔴 Offline'} | "
-                    f"🚚 {'Yes' if op['delivery'] else 'No'}"
-                )
-            text = "\n".join(rows)
-
+        rows = []
+        for username, op in operators.items():
+            rows.append(
+                f"{username} | 📍 {op['loc']} | "
+                f"{'🟢 Online' if op['online'] else '🔴 Offline'} | "
+                f"🚚 {'Yes' if op['delivery'] else 'No'}"
+            )
         await q.edit_message_caption(
-            caption=box(text),
+            caption=box("\n".join(rows) if rows else "Info puudub."),
             parse_mode="HTML",
             reply_markup=back()
         )
 
-    # 🔗 LINKS (SUUR STIIL)
+    # 🔗 LINKS – ILMA KASTITA
     elif q.data == "links":
         if not links:
             text = "🔗 LINKS\n\nInfo puudub."
         else:
-            rows = ["🔗 LINKS\n"]
+            rows = ["🔗 <b>LINKS</b>\n"]
             for l in links:
                 rows.append(
                     f"📢 <b>{html.escape(l['name'])}</b>\n"
@@ -252,12 +217,11 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = "\n".join(rows)
 
         await q.edit_message_caption(
-            caption=f"<blockquote>{text}</blockquote>",
+            caption=text,
             parse_mode="HTML",
             reply_markup=back()
         )
 
-    # 🔙 BACK
     elif q.data == "back":
         await q.edit_message_caption(
             caption=HOME_CAPTION,
@@ -269,18 +233,15 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =====================
 def main():
     load_data()
-
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stock", set_stock))
     app.add_handler(CommandHandler("addoperator", add_operator))
-
     app.add_handler(CommandHandler("loc", set_loc))
     app.add_handler(CommandHandler("online", online))
     app.add_handler(CommandHandler("offline", offline))
     app.add_handler(CommandHandler("delivery", delivery))
-
     app.add_handler(CommandHandler("link", add_link))
     app.add_handler(CallbackQueryHandler(buttons))
 
