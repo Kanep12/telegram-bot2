@@ -13,26 +13,27 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# 👑 Owner (sina)
+# 👑 Owner
 OWNER_ID = 7936569231
-
-# 👤 Adminid
 admins = {OWNER_ID}
 
-# 🏠 ALGNE TEKST (TERE TULEMAST)
+# 🏠 Algne tekst
 HOME_CAPTION = (
     "🐶 Tere tulemast DoggieMarketisse!\n\n"
     "Kasuta allolevaid nuppe, et näha infot."
 )
 
-# 📦 Stock tekst (vaikimisi – info puudub)
+# 📦 Stock tekst (ILMA > MÄRKIDETA)
 stock_text = (
-    "> 📦 Stock\n"
-    ">\n"
-    "> Info puudub."
+    "📦 Stock\n\n"
+    "Info puudub."
 )
 
-# 🔘 Põhimenüü nupud
+# 🔧 Funktsioon: teeb lilla kasti automaatselt
+def to_blockquote(text: str) -> str:
+    return "\n".join(f"> {line}" if line.strip() else ">" for line in text.splitlines())
+
+# 🔘 Menüüd
 def main_menu_keyboard():
     return InlineKeyboardMarkup([
         [
@@ -42,7 +43,6 @@ def main_menu_keyboard():
         ]
     ])
 
-# 🔙 Back nupp
 def back_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 Back", callback_data="back")]
@@ -57,7 +57,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu_keyboard()
         )
 
-# 🔐 Admin-only /stock (säilitab reavahed ja lilla kasti)
+# 🔐 Admin-only /stock (ILMA > kirjutamata)
 async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global stock_text
 
@@ -69,11 +69,11 @@ async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ Kasutus:\n"
             "/stock <tekst>\n\n"
-            "NB! Lilla kasti jaoks alusta iga rida märgiga >"
+            "NB! ÄRA kasuta > märke – bot teeb vorminduse ise."
         )
         return
 
-    # ⬇️ säilitab reavahed ja >
+    # ⬇️ säilitab reavahed, EI lisa >
     stock_text = update.message.text.split(" ", 1)[1]
 
     await update.message.reply_text("✅ Stock uuendatud!")
@@ -97,14 +97,14 @@ async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admins.add(new_admin)
     await update.message.reply_text(f"✅ Admin lisatud: {new_admin}")
 
-# 🔘 Nuppude handler
+# 🔘 Nupud
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     if query.data == "stock":
         await query.edit_message_caption(
-            caption=stock_text,
+            caption=to_blockquote(stock_text),
             parse_mode="Markdown",
             reply_markup=back_keyboard()
         )
