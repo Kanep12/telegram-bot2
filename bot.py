@@ -1,4 +1,5 @@
 import os
+import json
 import html
 from telegram import (
     Update,
@@ -14,8 +15,10 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# 👑 Owner (sina)
+# 👑 Owner
 OWNER_ID = 7936569231
+
+DATA_FILE = "operators.json"
 
 # 📦 Stock
 stock_text = "📦 Stock\n\nInfo puudub."
@@ -25,7 +28,31 @@ stock_text = "📦 Stock\n\nInfo puudub."
 # value = {user_id, loc, online, delivery}
 operators = {}
 
-# 🏠 Home tekst
+# =====================
+# 💾 LOAD / SAVE
+# =====================
+
+def load_data():
+    global operators, stock_text
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            operators = data.get("operators", {})
+            stock_text = data.get("stock_text", stock_text)
+
+def save_data():
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "operators": operators,
+                "stock_text": stock_text
+            },
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
+
+# 🏠 Home
 HOME_CAPTION = (
     "🐶 Tere tulemast DoggieMarketisse!\n\n"
     "Kasuta allolevaid nuppe."
@@ -50,7 +77,9 @@ def back():
         [InlineKeyboardButton("🔙 Back", callback_data="back")]
     ])
 
+# =====================
 # /start
+# =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open("doggie.png", "rb") as photo:
         await update.message.reply_photo(
@@ -73,6 +102,7 @@ async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     global stock_text
     stock_text = update.message.text.split(" ", 1)[1]
+    save_data()
     await update.message.reply_text("✅ Stock uuendatud!")
 
 # =====================
@@ -95,6 +125,7 @@ async def add_operator(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "delivery": False
     }
 
+    save_data()
     await update.message.reply_text(f"✅ Operator lisatud: {username}")
 
 # =====================
@@ -107,6 +138,7 @@ def get_operator(user):
     key = f"@{user.username}"
     if key in operators:
         operators[key]["user_id"] = user.id
+        save_data()
         return operators[key]
 
     return None
@@ -120,6 +152,7 @@ async def set_loc(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     op["loc"] = " ".join(context.args)
+    save_data()
     await update.message.reply_text("📍 Location uuendatud")
 
 async def online(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -128,6 +161,7 @@ async def online(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     op["online"] = True
+    save_data()
     await update.message.reply_text("🟢 Status: ONLINE")
 
 async def offline(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -136,6 +170,7 @@ async def offline(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     op["online"] = False
+    save_data()
     await update.message.reply_text("🔴 Status: OFFLINE")
 
 async def delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -144,6 +179,7 @@ async def delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     op["delivery"] = context.args[0].lower() == "yes"
+    save_data()
     await update.message.reply_text("🚚 Delivery uuendatud")
 
 # =====================
@@ -153,7 +189,6 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
-    # 📦 STOCK
     if q.data == "stock":
         await q.edit_message_caption(
             caption=box(stock_text),
@@ -161,7 +196,6 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back()
         )
 
-    # 👤 OPERATORS (ÜHEL REAL)
     elif q.data == "operators":
         if not operators:
             text = "👤 Operators | Info puudub."
@@ -182,14 +216,12 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=back()
         )
 
-    # 🔗 LINKS
     elif q.data == "links":
         await q.edit_message_caption(
             caption="🔗 Links\n\n@doggiemarket_bot",
             reply_markup=back()
         )
 
-    # 🔙 BACK
     elif q.data == "back":
         await q.edit_message_caption(
             caption=HOME_CAPTION,
@@ -200,12 +232,14 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # MAIN
 # =====================
 def main():
+    load_data()
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stock", set_stock))
-
     app.add_handler(CommandHandler("addoperator", add_operator))
+
     app.add_handler(CommandHandler("loc", set_loc))
     app.add_handler(CommandHandler("online", online))
     app.add_handler(CommandHandler("offline", offline))
