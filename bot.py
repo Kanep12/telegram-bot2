@@ -1,4 +1,5 @@
 import os
+import html
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -23,15 +24,15 @@ HOME_CAPTION = (
     "Kasuta allolevaid nuppe, et näha infot."
 )
 
-# 📦 Stock tekst (ILMA > MÄRKIDETA)
-stock_text = (
-    "📦 Stock\n\n"
-    "Info puudub."
-)
+# 📦 Stock tekst (TAVALINE TEKST)
+stock_text = "📦 Stock\n\nInfo puudub."
 
-# 🔧 Funktsioon: teeb lilla kasti automaatselt
-def to_blockquote(text: str) -> str:
-    return "\n".join(f"> {line}" if line.strip() else ">" for line in text.splitlines())
+# 🔧 HTML blockquote (EI NÄITA >)
+def to_blockquote_html(text: str) -> str:
+    escaped = html.escape(text)
+    lines = escaped.splitlines()
+    inner = "<br>".join(lines)
+    return f"<blockquote>{inner}</blockquote>"
 
 # 🔘 Menüüd
 def main_menu_keyboard():
@@ -57,7 +58,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu_keyboard()
         )
 
-# 🔐 Admin-only /stock (ILMA > kirjutamata)
+# 🔐 Admin-only /stock (LIHTNE, ILMA >)
 async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global stock_text
 
@@ -69,13 +70,11 @@ async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ Kasutus:\n"
             "/stock <tekst>\n\n"
-            "NB! ÄRA kasuta > märke – bot teeb vorminduse ise."
+            "Ära kasuta > märke – bot vormindab ise."
         )
         return
 
-    # ⬇️ säilitab reavahed, EI lisa >
     stock_text = update.message.text.split(" ", 1)[1]
-
     await update.message.reply_text("✅ Stock uuendatud!")
 
 # 👑 Owner-only /addadmin
@@ -104,8 +103,8 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "stock":
         await query.edit_message_caption(
-            caption=to_blockquote(stock_text),
-            parse_mode="Markdown",
+            caption=to_blockquote_html(stock_text),
+            parse_mode="HTML",
             reply_markup=back_keyboard()
         )
 
