@@ -14,29 +14,26 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# 👑 Owner (sina)
+# 👑 Owner
 OWNER_ID = 7936569231
 admins = {OWNER_ID}
 
-# 🏠 Algne tekst
+# 🧑‍💼 Operatorite andmed
+operators = {}  
+# user_id: {username, loc, online, delivery}
+
+# 🏠 Home
 HOME_CAPTION = (
     "🐶 Tere tulemast DoggieMarketisse!\n\n"
-    "Kasuta allolevaid nuppe, et näha infot."
+    "Kasuta allolevaid nuppe."
 )
 
-# 📦 Stock tekst (TAVALINE tekst, ilma > ja ilma HTMLita)
-stock_text = (
-    "📦 Stock\n\n"
-    "Info puudub."
-)
+# 🔧 Blockquote HTML
+def box(text: str) -> str:
+    return f"<blockquote>{html.escape(text)}</blockquote>"
 
-# 🔧 Funktsioon: teeb HTML blockquote (lilla kast)
-def to_blockquote_html(text: str) -> str:
-    escaped = html.escape(text)
-    return f"<blockquote>{escaped}</blockquote>"
-
-# 🔘 Põhimenüü
-def main_menu_keyboard():
+# 🔘 Keyboards
+def main_menu():
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("📦 Stock", callback_data="stock"),
@@ -45,8 +42,7 @@ def main_menu_keyboard():
         ]
     ])
 
-# 🔙 Back nupp
-def back_keyboard():
+def back():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 Back", callback_data="back")]
     ])
@@ -57,88 +53,129 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_photo(
             photo=photo,
             caption=HOME_CAPTION,
-            reply_markup=main_menu_keyboard()
+            reply_markup=main_menu()
         )
 
-# 🔐 Admin-only /stock
-async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global stock_text
-
-    if update.effective_user.id not in admins:
-        await update.message.reply_text("⛔ Sul pole õigust seda käsku kasutada.")
-        return
-
-    if not update.message.text or len(update.message.text.split(" ", 1)) < 2:
-        await update.message.reply_text(
-            "❌ Kasutus:\n"
-            "/stock <tekst>\n\n"
-            "Ära kasuta > ega HTML-i – bot vormindab ise."
-        )
-        return
-
-    # Säilitab reavahed
-    stock_text = update.message.text.split(" ", 1)[1]
-
-    await update.message.reply_text("✅ Stock uuendatud!")
-
-# 👑 Owner-only /addadmin
+# 👑 add admin
 async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("⛔ Ainult owner saab admini lisada.")
         return
 
-    if not context.args:
-        await update.message.reply_text("❌ Kasutus: /addadmin <user_id>")
-        return
-
-    try:
-        new_admin = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("❌ User ID peab olema number.")
-        return
-
+    new_admin = int(context.args[0])
     admins.add(new_admin)
-    await update.message.reply_text(f"✅ Admin lisatud: {new_admin}")
 
-# 🔘 Nuppude handler
+    if new_admin not in operators:
+        operators[new_admin] = {
+            "username": "Not set",
+            "loc": "Not set",
+            "online": False,
+            "delivery": False
+        }
+
+    await update.message.reply_text("✅ Admin lisatud")
+
+# 🔐 check admin
+def is_admin(user_id):
+    return user_id in admins
+
+# 👤 /operator @name
+async def set_operator(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+
+    operators.setdefault(uid, {
+        "username": "",
+        "loc": "Not set",
+        "online": False,
+        "delivery": False
+    })
+
+    operators[uid]["username"] = context.args[0]
+    await update.message.reply_text("✅ Operator nimi uuendatud")
+
+# 📍 /loc
+async def set_loc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+
+    operators[uid]["loc"] = " ".join(context.args)
+    await update.message.reply_text("📍 Location uuendatud")
+
+# 🟢 /online
+async def online(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+
+    operators[uid]["online"] = True
+    await update.message.reply_text("🟢 Status: ONLINE")
+
+# 🔴 /offline
+async def offline(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+
+    operators[uid]["online"] = False
+    await update.message.reply_text("🔴 Status: OFFLINE")
+
+# 🚚 /delivery yes/no
+async def delivery(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+
+    operators[uid]["delivery"] = context.args[0].lower() == "yes"
+    await update.message.reply_text("🚚 Delivery uuendatud")
+
+# 👤 Operators view
+async def show_operators(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not operators:
+        text = "Operators info puudub."
+    else:
+        lines = []
+        for op in operators.values():
+            lines.append(
+                f"{op['username']}\n"
+                f"📍 {op['loc']}\n"
+                f"{'🟢 Online' if op['online'] else '🔴 Offline'}\n"
+                f"🚚 Delivery: {'Yes' if op['delivery'] else 'No'}\n"
+            )
+        text = "\n".join(lines)
+
+    await update.callback_query.edit_message_caption(
+        caption=box(text),
+        parse_mode="HTML",
+        reply_markup=back()
+    )
+
+# 🔘 Buttons
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    q = update.callback_query
+    await q.answer()
 
-    if query.data == "stock":
-        await query.edit_message_caption(
-            caption=to_blockquote_html(stock_text),
-            parse_mode="HTML",
-            reply_markup=back_keyboard()
-        )
+    if q.data == "operators":
+        await show_operators(update, context)
 
-    elif query.data == "operators":
-        await query.edit_message_caption(
-            caption="👤 Operators\n\nAsk from bot",
-            reply_markup=back_keyboard()
-        )
-
-    elif query.data == "links":
-        await query.edit_message_caption(
-            caption="🔗 Links\n\n@doggiemarket_bot",
-            reply_markup=back_keyboard()
-        )
-
-    elif query.data == "back":
-        await query.edit_message_caption(
+    elif q.data == "back":
+        await q.edit_message_caption(
             caption=HOME_CAPTION,
-            reply_markup=main_menu_keyboard()
+            reply_markup=main_menu()
         )
 
+# main
 def main():
-    if not TOKEN:
-        raise ValueError("BOT_TOKEN puudub!")
-
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stock", set_stock))
     app.add_handler(CommandHandler("addadmin", add_admin))
+    app.add_handler(CommandHandler("operator", set_operator))
+    app.add_handler(CommandHandler("loc", set_loc))
+    app.add_handler(CommandHandler("online", online))
+    app.add_handler(CommandHandler("offline", offline))
+    app.add_handler(CommandHandler("delivery", delivery))
     app.add_handler(CallbackQueryHandler(buttons))
 
     print("Bot töötab...")
