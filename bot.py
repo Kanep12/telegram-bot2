@@ -14,7 +14,7 @@ from telegram.ext import (
 
 TOKEN = os.environ.get("BOT_TOKEN")
 
-# 👑 Owner
+# 👑 Owner (sina)
 OWNER_ID = 7936569231
 admins = {OWNER_ID}
 
@@ -24,17 +24,18 @@ HOME_CAPTION = (
     "Kasuta allolevaid nuppe, et näha infot."
 )
 
-# 📦 Stock tekst (TAVALINE TEKST)
-stock_text = "📦 Stock\n\nInfo puudub."
+# 📦 Stock tekst (TAVALINE tekst, ilma > ja ilma HTMLita)
+stock_text = (
+    "📦 Stock\n\n"
+    "Info puudub."
+)
 
-# 🔧 HTML blockquote (EI NÄITA >)
+# 🔧 Funktsioon: teeb HTML blockquote (lilla kast)
 def to_blockquote_html(text: str) -> str:
     escaped = html.escape(text)
-    lines = escaped.splitlines()
-    inner = "<br>".join(lines)
-    return f"<blockquote>{inner}</blockquote>"
+    return f"<blockquote>{escaped}</blockquote>"
 
-# 🔘 Menüüd
+# 🔘 Põhimenüü
 def main_menu_keyboard():
     return InlineKeyboardMarkup([
         [
@@ -44,6 +45,7 @@ def main_menu_keyboard():
         ]
     ])
 
+# 🔙 Back nupp
 def back_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 Back", callback_data="back")]
@@ -58,7 +60,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu_keyboard()
         )
 
-# 🔐 Admin-only /stock (LIHTNE, ILMA >)
+# 🔐 Admin-only /stock
 async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global stock_text
 
@@ -70,11 +72,13 @@ async def set_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "❌ Kasutus:\n"
             "/stock <tekst>\n\n"
-            "Ära kasuta > märke – bot vormindab ise."
+            "Ära kasuta > ega HTML-i – bot vormindab ise."
         )
         return
 
+    # Säilitab reavahed
     stock_text = update.message.text.split(" ", 1)[1]
+
     await update.message.reply_text("✅ Stock uuendatud!")
 
 # 👑 Owner-only /addadmin
@@ -96,7 +100,7 @@ async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admins.add(new_admin)
     await update.message.reply_text(f"✅ Admin lisatud: {new_admin}")
 
-# 🔘 Nupud
+# 🔘 Nuppude handler
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
